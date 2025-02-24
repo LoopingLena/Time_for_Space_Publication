@@ -2143,7 +2143,7 @@ text(-0.6,-1.0,
 # idea: #scatterplot group means - space vs time
 #
 # # # # #
-# 3.x.x. - create all_region_means.RData ----
+# 3.1. - create all_region_means.RData ----
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # #code to produce all_region_means.RData # # # # # # # # # # #
@@ -2191,7 +2191,7 @@ div_temp <- data.table(div_temp)
 div_space_within_reg <- data.table(div_space_within_reg)
 
 
-# CREATE MEAN AND STANDARD ERROR PER REGION PER GROUP ----
+# CREATE MEAN AND STANDARD ERROR PER REGION PER GROUP
 # BSIM
 temp <- calc_temporal_regionwise_mean_sd("Bsim_time", div_temp, "bsim")
 bsim <- calc_spatial_regionwise_mean_sd_and_add_to_temporal(temp, "Bsim_space", div_space_within_reg, "bsim")
@@ -2240,7 +2240,7 @@ a4 <- calc_spatial_regionwise_mean_sd_and_add_to_temporal(temp, "A4_space", div_
 reg<- as.factor(rep(c("AEG", "HEG", "SEG"), each=3))
 
 # # # # # # # # # # # # # #
-# 3 - SCATTERPLOTS              ----
+# 3.2. - plotting ----            
 #
 library(ggplot2)
 library(cowplot)
@@ -2289,5 +2289,123 @@ cowplot::plot_grid(p_a0, p_bsim,  labels = c("(a)", "(b)"))
 
 plot_grid(p_bsim, p_b0, p_b1, p_b2, labels = c("(a)", "(b)", "(c)", "(d)"))
 # see this tutorial (I use it a lot): https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html
+
+# 4 - Summary Figure GDM/LM              ----
+
+# 4.1. - data upload ####
+
+# set working directory to 4. Plotting results
+# save sheet "RFormat" from supplementary table S3
+# of the respective manuscript publication as .csv file
+
+# name "SupplementaryLMs_Summary.csv"
+
+tab<- read.csv("SupplementaryLMs_Summary.csv", 
+               header=T, 
+               sep=";",
+               dec=".")
+# packages ####
+library(ggplot2)
+
+# data prep ####
+
+agg <- aggregate(x$val1, list(id11 = x$id1, id2= x$id2), mean)
+names(agg)[3] <- c("val1")  # Rename the column
+
+# means over abundance weighting
+tab_agg<- aggregate(tab$congruence, 
+                    list(id1 = tab$trophic.group,
+                         id2 = tab$diversity.response,
+                         id3 = tab$relationship.aspect,
+                         id4 = tab$measure.of.landuse.intensity),
+                    mean)
+tab_agg$id1<- factor(tab_agg$id1, levels=c( "arthropod secondary consumers",
+                                            "arthropod herbivores",
+                                            "plants"))
+tab_agg$id2<- factor(tab_agg$id2, levels=c("beta", "alpha"))
+tab_agg$id4<- factor(tab_agg$id4, levels=c("FER", "GRA", "MOW", "LUI"))
+tab_agg$int<- as.factor(interaction(tab_agg$id1,
+                                    tab_agg$id2,
+                                    tab_agg$id4))
+
+# plotting ####
+shape<- tab_agg[tab_agg$id3=="shape",]
+dir_del<- tab_agg[tab_agg$id3=="direction_delta",]
+dir_mea<- tab_agg[tab_agg$id3=="direction_mean",]
+
+yed<- t(c("", "fertlization (beta)", "",
+          "", "fertlization (alpha)", "",
+          "", "grazing (beta)", "",
+          "", "grazing (alpha)", "",
+          "", "mowing (beta)", "",
+          "", "mowing (alpha)", "",
+          "", "LUI (beta)", "",
+          "", "LUI (alpha)", ""))
+
+## 1 - shape ####
+shape_plot<- ggplot(shape, aes(x, int, col=id1, fill=id2))+
+  geom_col(alpha=0.5)+
+  xlim(0,1)+
+  xlab("average congruence %")+
+  scale_y_discrete(labels=yed)+
+  labs(title= "A - relationship shape")+
+  geom_hline(aes(yintercept=c(6.5))) +
+  geom_hline(aes(yintercept=c(12.5))) +
+  geom_hline(aes(yintercept=c(18.5))) +
+  theme_classic()+
+  theme(text=element_text(size = 15))
+
+div<- c("black", "lightgrey")
+tro<- c("#7570b3","#d95f02", "#1b9e77")
+
+withr::with_options(
+  list(ggplot2.discrete.colour = tro,
+       ggplot2.discrete.fill=div),
+  print(shape_plot))
+
+
+
+## 2 - direction,mean ####
+dirmea_plot<- ggplot(dir_mea, aes(x, int, col=id1, fill=id2))+
+  geom_col(alpha=0.5)+
+  xlim(0,1)+
+  xlab("average congruence %")+
+  labs(title="B - relationship direction (mean)")+
+  scale_y_discrete(labels=yed)+
+  geom_hline(aes(yintercept=c(6.5))) +
+  geom_hline(aes(yintercept=c(12.5))) +
+  geom_hline(aes(yintercept=c(18.5))) +
+  theme_classic()+
+  theme(text=element_text(size = 15))
+
+
+div<- c("black", "lightgrey")
+tro<- c("#7570b3","#d95f02", "#1b9e77")
+
+withr::with_options(
+  list(ggplot2.discrete.colour = tro,
+       ggplot2.discrete.fill=div),
+  print(dirmea_plot))
+
+## 3 - direction,delta ####
+dirdel_plot<- ggplot(dir_del, aes(x, int, col=id1, fill=id2))+
+  geom_col(alpha=0.5)+
+  xlim(0,1)+
+  xlab("average congruence %")+
+  labs(title="C- relationship direction (delta)")+
+  scale_y_discrete(labels=yed)+
+  geom_hline(aes(yintercept=c(6.5))) +
+  geom_hline(aes(yintercept=c(12.5))) +
+  geom_hline(aes(yintercept=c(18.5))) +
+  theme_classic()+
+  theme(text=element_text(size = 15))
+
+div<- c("black", "lightgrey")
+tro<- c("#7570b3","#d95f02", "#1b9e77")
+
+withr::with_options(
+  list(ggplot2.discrete.colour = tro,
+       ggplot2.discrete.fill=div),
+  print(dirdel_plot))
 
 
